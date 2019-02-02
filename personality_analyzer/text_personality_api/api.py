@@ -2,6 +2,7 @@
 
 import tensorflow as tf
 import numpy as np
+import sys
 import os
 import logging
 import time
@@ -35,7 +36,7 @@ for i in range(len(modelNames)):
     print("Model " + str(i) + " = " + modelNames[i])
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
+FLAGS(sys.argv)  # before this was FLAGS._parse_flags()
 
 x_raw = "I have a lot of friends and I like partying a lot! Let's have some fun!"
 
