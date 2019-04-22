@@ -49,11 +49,16 @@ class TextPersonalityAnalyzer:
 
         self.model = Model(inputs=inputs, outputs=pr)
 
-    def train(self, loss_function, adam):
-
+    def train(self, loss_function, optimizer):
+        """
+        Train routine.
+        :param loss_function: str; such as 'MSE'.
+        :param optimizer:
+        :return:
+        """
         self.model.compile(loss=loss_function,
                            # metrics=['accuracy'],
-                           optimizer=adam)
+                           optimizer=optimizer)
         self.model.summary()
 
     def predict(self):
