@@ -1,4 +1,4 @@
-personality_analyzer/word2vec
+**/*.pyc
 .DS_Store
 .idea/
 .old/
