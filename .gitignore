@@ -3,3 +3,4 @@ personality_analyzer/word2vec
 .idea/
 .old/
 old/
+models/
