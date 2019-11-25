@@ -1,18 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from scipy import signal
 
 
 def save_first_layer_filters_plot(model, savedir='figures/first_layer_filter_parameters',
                                   sampling_freq=8000):
     """
     Saves subplots of filter parameters without grid and axes.
-    :return:
     """
-    conv_layer_weights = model.layers[1].get_weights()[0]
-    conv_layer_biases = model.layers[1].get_weights()[1]
-    print('Weights', conv_layer_weights.shape)
-    print('Biases ', conv_layer_biases.shape)
+    conv_layer_weights, conv_layer_biases = _get_weights_and_biases(model)
 
     conv_layer_R = conv_layer_weights[:, 0, :].T
     print('Weights', conv_layer_R.shape)
@@ -77,3 +74,108 @@ def save_first_layer_filters_plot(model, savedir='figures/first_layer_filter_par
     filt12.axis('off')
 
     plt.savefig(os.path.join(savedir, 'first_layer_filter_parameters.eps'))
+
+
+def first_layer_fft(model, sampling_freq : int = 8000):
+
+    conv_layer_weights, conv_layer_biases = _get_weights_and_biases(model)
+
+    conv_layer_R = conv_layer_weights[:, 0, :].T  # (n_filters, kernel_size)
+    conv_layer_E = conv_layer_weights[:, 1, :].T
+
+    num_filters = conv_layer_R.shape[0]
+
+    four_log_R = _get_frequency_components(conv_layer_R)
+    four_log_E = _get_frequency_components(conv_layer_E)
+
+    # Average filter response first convolutional layer.
+    xfreq = np.linspace(0, sampling_freq / 2, 101)
+    plt.subplot(211)
+    yfreq = np.mean(four_log_R, axis=0)
+    # plt.plot(xfreq, yfreq)
+    plt.plot(xfreq, signal.savgol_filter(yfreq, 9, 5))
+    # plt.title('Average over filters |FFT|')
+    plt.grid()
+    plt.ylabel('20 log10(|FFT|))')
+
+    plt.subplot(212)
+    yfreq = np.mean(four_log_E, axis=0)
+    # plt.plot(xfreq, yfreq)
+    plt.plot(xfreq, signal.savgol_filter(yfreq, 9, 5))
+    plt.xlabel('Frequency')
+    plt.grid()
+    plt.ylabel('20 log10(|FFT|))')
+
+    plt.savefig('average-filters-personality.eps')
+    plt.show()
+
+    # Response per filter in frequency domain (i.e. sorted image).
+    filter_im_R = four_log_R.T
+    print(filter_im_R.shape)
+    filter_max_R = np.max(filter_im_R)
+    filter_min_R = np.min(filter_im_R)
+    print('Max value ', np.max(filter_im_R), 'Min value', np.min(filter_im_R))
+
+    filter_maxima_R = np.argsort(np.argmax(filter_im_R, axis=0))
+    filter_im_R = filter_im_R[:, filter_maxima_R]
+
+    filter_im_E = four_log_E.T
+    print(filter_im_E.shape)
+    filter_max_E = np.max(filter_im_E)
+    filter_min_E = np.min(filter_im_E)
+    print('Max value ', np.max(filter_im_E), 'Min value', np.min(filter_im_E))
+
+    filter_maxima_E = np.argsort(np.argmax(filter_im_E, axis=0))
+    filter_im_E = filter_im_E[:, filter_maxima_E]
+
+    plt.imshow(
+        filter_im_R,
+        aspect='auto',
+        cmap='seismic',
+        vmin=-filter_max_R,
+        vmax=filter_max_R,
+        extent=(0, num_filters, 4000, 0)
+    )
+    # plt.colorbar()
+    plt.ylabel('frequency')
+    plt.tight_layout()
+    plt.savefig('pers-filter-responses-raw.eps')
+    plt.title('Raw waveforms')
+    plt.show()
+    plt.imshow(
+        filter_im_E,
+        aspect='auto',
+        cmap='seismic',
+        vmin=-filter_max_E,
+        vmax=filter_max_E,
+        extent=(0, num_filters, 4000, 0)
+    )
+    plt.ylabel('frequency')
+    plt.tight_layout()
+    plt.savefig('pers-filter-responses-energy.eps')
+    plt.show()
+
+    # plt.subplot(211)
+    # plt.imshow(filter_im_R, aspect='auto', cmap='seismic', vmin=-filter_max_R, vmax=filter_max_R)
+    # plt.colorbar()
+    # plt.subplot(212)
+    # plt.imshow(filter_im_E, aspect='auto', cmap='seismic', vmin=-filter_max_E, vmax=filter_max_E)
+    # plt.colorbar()
+    # plt.savefig('frequency-response-per-filter-pers.eps')
+    # plt.show()
+
+
+def _get_weights_and_biases(model):
+    conv_layer_weights = model.layers[1].get_weights()[0]  # (kernel_size, n_input_channels, n_filters)
+    conv_layer_biases = model.layers[1].get_weights()[1]  # (n_filters, )
+    print('Weights', conv_layer_weights.shape)
+    print('Biases ', conv_layer_biases.shape)
+    return conv_layer_weights, conv_layer_biases
+
+
+def _get_frequency_components(conv_layer):
+    four = np.fft.rfft(conv_layer)  # (n_filters, kernel_size / 2 + 1)
+    print(four.shape)
+    four_log = 20 * np.log10(np.abs(four))
+    print(four_log.shape)
+    return four_log
