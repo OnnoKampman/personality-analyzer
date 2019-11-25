@@ -1,9 +1,10 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 
-def save_first_layer_filters_plot(model, patch_size1, sampling_freq=8000):
+def save_first_layer_filters_plot(model, savedir='figures/first_layer_filter_parameters',
+                                  sampling_freq=8000):
     """
     Saves subplots of filter parameters without grid and axes.
     :return:
@@ -14,16 +15,14 @@ def save_first_layer_filters_plot(model, patch_size1, sampling_freq=8000):
     print('Biases ', conv_layer_biases.shape)
 
     conv_layer_R = conv_layer_weights[:, 0, :].T
-    print(conv_layer_R.shape)
+    print('Weights', conv_layer_R.shape)
 
-    conv_layer_E = conv_layer_weights[:, 1, :].T
+    # conv_layer_E = conv_layer_weights[:, 1, :].T
 
-    num_filters = conv_layer_R.shape[0]
+    patch_size = conv_layer_R.shape[1]  # e.g. patch size of 200 at 8 kHz sampling rate is 25 ms in size
 
-    xtime = np.linspace(0, patch_size1 / sampling_freq * 1000, patch_size1)
+    xtime = np.linspace(0, patch_size / sampling_freq * 1000, patch_size)
     plt.xlabel('time (ms)')
-
-    plt.plot(xtime, conv_layer_R[4, :])
 
     # plt.savefig('figures/'+save_date+'-first layer filter parameters.eps')
     # plt.show()
@@ -77,4 +76,4 @@ def save_first_layer_filters_plot(model, patch_size1, sampling_freq=8000):
     plt.plot(xtime, conv_layer_R[11, :])
     filt12.axis('off')
 
-    plt.savefig('figures/first_layer_filter_parameters/first_layer_filter_parameters.eps')
+    plt.savefig(os.path.join(savedir, 'first_layer_filter_parameters.eps'))
