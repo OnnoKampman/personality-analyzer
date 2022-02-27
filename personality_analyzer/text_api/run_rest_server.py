@@ -1,14 +1,15 @@
 #! /usr/bin/env python
 
-import sys
-import os
-import re
-import logging
-import numpy as np
-import tensorflow as tf
-from tensorflow.contrib import learn  # TODO: deprecated, should change to tf.data or tensorflow/transform
 from flask import Flask, url_for, request, abort, jsonify, json, render_template
 from gensim.models.keyedvectors import KeyedVectors
+import logging
+import numpy as np
+import os
+import re
+import sys
+import tensorflow as tf
+from tensorflow.contrib import learn  # TODO: deprecated, should change to tf.data or tensorflow/transform
+
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -18,36 +19,45 @@ print(dir_path)
 app = Flask(__name__)
 
 # Path to word2vec binary file.
-# TODO: check if word2vec file is present, otherwise ask if user wants to download it
-tf.flags.DEFINE_string("word2vec",
-                       dir_path + "/../../models/word2vec/GoogleNews-vectors-negative300.bin",
-                       "word2vec binary file path")
+word2vec_filepath = os.path.join("models", "word2vec", "GoogleNews-vectors-negative300.bin")
+if not os.path.exists(word2vec_filepath):
+    logging.error("Word2vec file not found, make sure you download it.")
+tf.compat.v1.flags.DEFINE_string(
+    "word2vec",
+    dir_path + "/../../models/word2vec/GoogleNews-vectors-negative300.bin",
+    "word2vec binary file path"
+)
 
 # Misc Parameters
-tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
-tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+# TODO: remove Tensorflow version 1 dependency
+tf.compat.v1.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
+tf.compat.v1.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 
 # Model configs.
-big_five = ['Extraversion',
-            'Agreeableness',
-            'Conscientiousness',
-            'Emotional Stability',
-            'Openness to Experience']
-model_names = [dir_path + '/../../models/text_model/extr/model-2300',
-               dir_path + '/../../models/text_model/agr/model-6900',
-               dir_path + '/../../models/text_model/cons/model-5750',
-               dir_path + '/../../models/text_model/emot/model-5750',
-               dir_path + '/../../models/text_model/openn/model-5175']
+big_five = [
+    'Extraversion',
+    'Agreeableness',
+    'Conscientiousness',
+    'Emotional Stability',
+    'Openness to Experience'
+]
+# A separate model has been trained for each Big Five dimension.
+model_filenames = [
+    os.path.join("models", "text_model", "extr", "model-2300"),
+    os.path.join("models", "text_model", "agr", "model-6900"),
+    os.path.join("models", "text_model", "cons", "model-5750"),
+    os.path.join("models", "text_model", "emot", "model-5750"),
+    os.path.join("models", "text_model", "openn", "model-5175")
+]
 
-for i in range(len(model_names)):
-    print("Model " + str(i) + " = " + model_names[i])
-
-FLAGS = tf.flags.FLAGS
+FLAGS = tf.compat.v1.flags.FLAGS
 FLAGS(sys.argv)  # before this was FLAGS._parse_flags()
 
-f_word2vec = KeyedVectors.load_word2vec_format(FLAGS.word2vec, binary=True) 
+f_word2vec = KeyedVectors.load_word2vec_format(FLAGS.word2vec, binary=True)
+logging.info("Loaded word2vec file.")
 
-vocab_path = dir_path + '/../../models/text_model/vocab'
+# TODO: update with the replacement of tf.contrib.learn
+vocab_path = os.path.join("models", "text_model", "vocab")
 vocab_processor = learn.preprocessing.VocabularyProcessor.restore(vocab_path)
 init_vocab_len = len(vocab_processor.vocabulary_)
 
@@ -61,7 +71,7 @@ def softmax(x):
     return e_x / e_x.sum()
 
 
-def clean_str(string):
+def clean_str(string: str) -> str:
     """
     Tokenization/string cleaning for all data sets except for SST.
     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
@@ -84,21 +94,23 @@ def clean_str(string):
     return string.strip().lower()
 
 
-def predict_personality(x_test):
+def predict_personality(x_test: np.array):
     """
     Prediction routine.
     :param x_test: array of sentence in form of word embeddings.
     :return:
     """
     personality_result = {}
-    counter = 0
-
-    for checkpoint_file in model_names:
+    for i_model_filename, checkpoint_file in enumerate(model_filenames):
         graph = tf.Graph()
         with graph.as_default():
-            session_conf = tf.ConfigProto(allow_soft_placement=FLAGS.allow_soft_placement,
-                                          log_device_placement=FLAGS.log_device_placement)
-            
+            # TODO: update this to Tensorflow 2 syntax
+            session_conf = tf.compat.v1.ConfigProto(
+                allow_soft_placement=FLAGS.allow_soft_placement,
+                log_device_placement=FLAGS.log_device_placement
+            )
+
+            # TODO: update this to Tensorflow 2 syntax
             sess = tf.Session(config=session_conf)
             with sess.as_default():
                 # Load the saved meta graph and restore variables
@@ -116,10 +128,7 @@ def predict_personality(x_test):
                 scores = graph.get_operation_by_name("output/scores").outputs[0]
                 scores = sess.run(scores, feed_dict={input_x: x_test,
                                                      dropout_keep_prob: 1.0})
-                personality_result[big_five[counter]] = float(str(softmax(scores)[0][1]))
-
-                # Move to next personality trait.
-                counter += 1
+                personality_result[big_five[i_model_filename]] = float(str(softmax(scores)[0][1]))
 
     return jsonify(personality_result)
 
