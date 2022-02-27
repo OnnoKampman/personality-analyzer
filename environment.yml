@@ -1,10 +1,19 @@
-name: personality_analyzer
+name: personality-analyzer
+channels:
+  - conda-forge
+  - defaults
 dependencies:
   - flask
   - gensim
-  - jupyterlab=0.30.6
-  - python=3.6.7
+  - jupyter
+  - jupyterlab
+  - keras
+  - matplotlib
+  - pandas
+  - pip
+  - python=3.10.2
+  - scikit-learn
   - sphinx
-  - tensorflow=1.11.0
+  - tensorflow
 #  - pip:
-#    - Flask-Testing
+#      - Flask-Testing
